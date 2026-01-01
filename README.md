@@ -41,5 +41,3 @@ GitHub README không chạy JavaScript
 File này dùng để chạy trên trình duyệt hoặc deploy GitHub Pages
 
 🎉 Chúc mừng năm mới 2026 – sáng tạo & rực rỡ! 🎆
-```bash
-npx serve .
