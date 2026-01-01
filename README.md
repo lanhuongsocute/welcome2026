@@ -31,7 +31,7 @@ Dự án tạo hiệu ứng **pháo hoa tương tác** bằng **HTML5 Canvas & J
 ## 🚀 Cách chạy
 Truy cập: 
 ```bash
-[npx serve .](https://lanhuongsocute.github.io/welcome2026/)
+https://lanhuongsocute.github.io/welcome2026/
 ```
 
 ⚠️ Lưu ý
