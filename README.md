@@ -29,10 +29,9 @@ Dự án tạo hiệu ứng **pháo hoa tương tác** bằng **HTML5 Canvas & J
 ---
 
 ## 🚀 Cách chạy
-- Mở file `index.html` bằng trình duyệt  
-hoặc
+Truy cập: 
 ```bash
-npx serve .
+[npx serve .](https://lanhuongsocute.github.io/welcome2026/)
 ```
 
 ⚠️ Lưu ý
