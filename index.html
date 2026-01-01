@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Happy New Year 2026</title>
+    <style>
+        html,
+        body {
+            margin: 0;
+            height: 100%;
+            background: #000;
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+        }
+
+        .hint {
+            position: fixed;
+            left: 12px;
+            bottom: 12px;
+            color: rgba(255, 255, 255, .65);
+            font: 14px/1.4 system-ui, -apple-system, Segoe UI, Roboto, Arial;
+            user-select: none;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="c"></canvas>
+    <div class="hint">Click/Chạm để bắn pháo hoa 🎆 | Space: bắn liên tục / Esc: dừng</div>
+
+    <script>
+        const canvas = document.getElementById("c");
+        const ctx = canvas.getContext("2d");
+        const DPR = Math.min(2, window.devicePixelRatio || 1);
+
+        function resize() {
+            canvas.width = Math.floor(innerWidth * DPR);
+            canvas.height = Math.floor(innerHeight * DPR);
+            canvas.style.width = innerWidth + "px";
+            canvas.style.height = innerHeight + "px";
+            ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+        }
+        addEventListener("resize", resize);
+        resize();
+
+        const W = () => innerWidth, H = () => innerHeight;
+        const rand = (a, b) => a + Math.random() * (b - a);
+        const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+        // --- Particles ---
+        class Particle {
+            constructor(x, y, vx, vy, life, size, hue) {
+                this.x = x; this.y = y; this.vx = vx; this.vy = vy;
+                this.life = life; this.maxLife = life; this.size = size; this.hue = hue;
+            }
+            step(dt) {
+                this.vx *= Math.pow(0.995, dt * 60);
+                this.vy *= Math.pow(0.995, dt * 60);
+                this.vy += 0.10 * dt * 60;
+                this.x += this.vx * dt * 60;
+                this.y += this.vy * dt * 60;
+                this.life -= dt;
+            }
+            draw() {
+                const t = this.life / this.maxLife;
+                const alpha = clamp(t, 0, 1);
+                ctx.globalAlpha = alpha;
+                ctx.fillStyle = `hsl(${this.hue} 100% 60%)`;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size * (0.6 + 0.8 * (1 - alpha)), 0, Math.PI * 2);
+                ctx.fill();
+                ctx.globalAlpha = 1;
+            }
+        }
+
+        class Spark {
+            constructor(x, y, vx, vy, life, hue) {
+                this.x = x; this.y = y; this.vx = vx; this.vy = vy;
+                this.life = life; this.maxLife = life; this.hue = hue;
+            }
+            step(dt) {
+                this.vx *= Math.pow(0.98, dt * 60);
+                this.vy *= Math.pow(0.98, dt * 60);
+                this.vy += 0.08 * dt * 60;
+                this.x += this.vx * dt * 60;
+                this.y += this.vy * dt * 60;
+                this.life -= dt;
+            }
+            draw() {
+                const t = this.life / this.maxLife;
+                ctx.globalAlpha = clamp(t, 0, 1);
+                ctx.strokeStyle = `hsl(${this.hue} 100% 70%)`;
+                ctx.lineWidth = 1.2;
+                ctx.beginPath();
+                ctx.moveTo(this.x, this.y);
+                ctx.lineTo(this.x - this.vx * 0.15, this.y - this.vy * 0.15);
+                ctx.stroke();
+                ctx.globalAlpha = 1;
+            }
+        }
+
+        // --- Rocket ---
+        class Rocket {
+            constructor(tx, ty) {
+                this.x = rand(W() * 0.2, W() * 0.8);
+                this.y = H() + 10;
+                this.tx = tx; this.ty = ty;
+
+                const dx = tx - this.x, dy = ty - this.y;
+                const dist = Math.hypot(dx, dy);
+                const speed = rand(8, 11);
+
+                this.vx = (dx / dist) * speed;
+                this.vy = (dy / dist) * speed;
+                this.trail = [];
+                this.hue = rand(0, 360);
+                this.alive = true;
+            }
+            step(dt) {
+                if (!this.alive) return;
+                this.trail.push({ x: this.x, y: this.y });
+                if (this.trail.length > 18) this.trail.shift();
+
+                this.vy += 0.02 * dt * 60;
+                this.x += this.vx * dt * 60;
+                this.y += this.vy * dt * 60;
+
+                if (Math.hypot(this.x - this.tx, this.y - this.ty) < 18) {
+                    this.explode();
+                    this.alive = false;
+                }
+            }
+            draw() {
+                if (!this.alive) return;
+
+                ctx.save();
+                ctx.globalCompositeOperation = "lighter";
+
+                ctx.strokeStyle = `hsla(${this.hue},100%,60%,0.7)`;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                for (let i = 0; i < this.trail.length; i++) {
+                    const p = this.trail[i];
+                    if (i === 0) ctx.moveTo(p.x, p.y);
+                    else ctx.lineTo(p.x, p.y);
+                }
+                ctx.stroke();
+
+                ctx.fillStyle = `hsl(${this.hue} 100% 70%)`;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, 2.2, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.restore();
+            }
+            explode() {
+                const count = Math.floor(rand(90, 140));
+                const baseHue = this.hue;
+
+                for (let i = 0; i < count; i++) {
+                    const ang = rand(0, Math.PI * 2);
+                    const sp = rand(1.5, 7.0);
+                    particles.push(new Particle(
+                        this.x, this.y,
+                        Math.cos(ang) * sp, Math.sin(ang) * sp,
+                        rand(0.8, 1.6),
+                        rand(1.2, 2.2),
+                        baseHue + rand(-25, 25)
+                    ));
+                }
+                for (let i = 0; i < 70; i++) {
+                    const ang = rand(0, Math.PI * 2);
+                    const sp = rand(2, 10);
+                    sparks.push(new Spark(
+                        this.x, this.y,
+                        Math.cos(ang) * sp, Math.sin(ang) * sp,
+                        rand(0.4, 0.9),
+                        baseHue + rand(-30, 30)
+                    ));
+                }
+            }
+        }
+
+        const rockets = [], particles = [], sparks = [];
+
+        // ====== TEXT: upgraded ======
+        const TITLE = "HAPPY NEW YEAR 2026";
+
+        function fitFontSize(text, maxWidth, base) {
+            // đo và giảm dần để không tràn màn hình
+            let size = base;
+            ctx.font = `900 ${size}px system-ui,-apple-system,Segoe UI,Roboto,Arial`;
+            while (ctx.measureText(text).width > maxWidth && size > 16) {
+                size -= 2;
+                ctx.font = `900 ${size}px system-ui,-apple-system,Segoe UI,Roboto,Arial`;
+            }
+            return size;
+        }
+
+        function drawText(now) {
+            const x = W() / 2;
+            const y = H() * 0.22;
+
+            // nhấp nháy nhẹ
+            const pulse = 0.88 + 0.12 * Math.sin(now * 0.0016);
+
+            // font tự co giãn
+            const base = Math.floor(Math.min(W(), H()) * 0.10);
+            const fontSize = fitFontSize(TITLE, W() * 0.90, base);
+
+            // nền panel mờ sau chữ để luôn rõ
+            const padX = Math.max(26, fontSize * 0.55);
+            const padY = Math.max(18, fontSize * 0.35);
+            ctx.save();
+            ctx.globalCompositeOperation = "source-over";
+            ctx.font = `900 ${fontSize}px system-ui,-apple-system,Segoe UI,Roboto,Arial`;
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+
+            const textW = ctx.measureText(TITLE).width;
+            const panelW = textW + padX * 2;
+            const panelH = fontSize + padY * 2;
+            const rx = 18;
+
+            // rounded rect
+            ctx.globalAlpha = 0.22;
+            ctx.fillStyle = "#000";
+            roundRect(ctx, x - panelW / 2, y - panelH / 2, panelW, panelH, rx);
+            ctx.fill();
+
+            // viền mờ cho panel
+            ctx.globalAlpha = 0.28;
+            ctx.strokeStyle = "rgba(255,255,255,0.35)";
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
+            // chữ: gradient + outline 2 lớp + glow nhiều tầng
+            ctx.globalCompositeOperation = "lighter";
+            ctx.globalAlpha = 1;
+
+            const grad = ctx.createLinearGradient(x - textW / 2, y, x + textW / 2, y);
+            grad.addColorStop(0, "rgba(255,215,90,0.95)");
+            grad.addColorStop(0.5, "rgba(255,255,255,1)");
+            grad.addColorStop(1, "rgba(255,215,90,0.95)");
+
+            // Outer thick stroke (giúp chữ không bị lóa)
+            ctx.globalCompositeOperation = "source-over";
+            ctx.lineJoin = "round";
+            ctx.miterLimit = 2;
+            ctx.lineWidth = Math.max(8, fontSize * 0.12);
+            ctx.strokeStyle = "rgba(0,0,0,0.85)";
+            ctx.strokeText(TITLE, x, y);
+
+            // Inner thin stroke
+            ctx.lineWidth = Math.max(3, fontSize * 0.05);
+            ctx.strokeStyle = "rgba(255,255,255,0.45)";
+            ctx.strokeText(TITLE, x, y);
+
+            // Glow layers
+            ctx.globalCompositeOperation = "lighter";
+            ctx.shadowColor = "rgba(255, 220, 120, 0.65)";
+            ctx.shadowBlur = Math.max(18, fontSize * 0.35);
+
+            ctx.globalAlpha = 0.55 * pulse;
+            ctx.fillStyle = grad;
+            ctx.fillText(TITLE, x, y);
+
+            // extra soft glow
+            ctx.shadowColor = "rgba(120, 200, 255, 0.35)";
+            ctx.shadowBlur = Math.max(10, fontSize * 0.22);
+            ctx.globalAlpha = 0.25 * pulse;
+            ctx.fillText(TITLE, x, y);
+
+            // crisp top layer (không blur)
+            ctx.shadowBlur = 0;
+            ctx.globalAlpha = 0.95;
+            ctx.fillStyle = grad;
+            ctx.fillText(TITLE, x, y);
+
+            ctx.restore();
+        }
+
+        function roundRect(ctx, x, y, w, h, r) {
+            const rr = Math.min(r, w / 2, h / 2);
+            ctx.beginPath();
+            ctx.moveTo(x + rr, y);
+            ctx.arcTo(x + w, y, x + w, y + h, rr);
+            ctx.arcTo(x + w, y + h, x, y + h, rr);
+            ctx.arcTo(x, y + h, x, y, rr);
+            ctx.arcTo(x, y, x + w, y, rr);
+            ctx.closePath();
+        }
+
+        // Background fade
+        function fadeBg() {
+            ctx.fillStyle = "rgba(0,0,0,0.22)";
+            ctx.fillRect(0, 0, W(), H());
+        }
+
+        function launch(tx, ty) { rockets.push(new Rocket(tx, ty)); }
+
+        let auto = true;
+        let last = performance.now();
+        let rapid = false;
+
+        function loop(now) {
+            const dt = Math.min(0.033, (now - last) / 1000);
+            last = now;
+
+            fadeBg();
+            drawText(now);
+
+            if (auto) {
+                if (Math.random() < 0.06) {
+                    const tx = rand(W() * 0.15, W() * 0.85);
+                    const ty = rand(H() * 0.18, H() * 0.55);
+                    launch(tx, ty);
+                }
+                if (rapid && Math.random() < 0.35) {
+                    const tx = rand(W() * 0.10, W() * 0.90);
+                    const ty = rand(H() * 0.12, H() * 0.70);
+                    launch(tx, ty);
+                }
+            }
+
+            for (let i = rockets.length - 1; i >= 0; i--) {
+                rockets[i].step(dt);
+                rockets[i].draw();
+                if (!rockets[i].alive) rockets.splice(i, 1);
+            }
+            for (let i = particles.length - 1; i >= 0; i--) {
+                particles[i].step(dt);
+                particles[i].draw();
+                if (particles[i].life <= 0) particles.splice(i, 1);
+            }
+            for (let i = sparks.length - 1; i >= 0; i--) {
+                sparks[i].step(dt);
+                sparks[i].draw();
+                if (sparks[i].life <= 0) sparks.splice(i, 1);
+            }
+
+            requestAnimationFrame(loop);
+        }
+        requestAnimationFrame(loop);
+
+        addEventListener("pointerdown", (e) => launch(e.clientX, e.clientY));
+        addEventListener("keydown", (e) => {
+            if (e.code === "Space") rapid = true;
+            if (e.code === "Escape") auto = !auto;
+        });
+        addEventListener("keyup", (e) => { if (e.code === "Space") rapid = false; });
+    </script>
+</body>
+
+</html>
